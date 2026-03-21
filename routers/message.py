@@ -1,79 +1,118 @@
+import os
+import uuid
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.orm import Session
 from ..auth.dependencies import get_current_user
-from ..config.supabase import get_db
+from ..config.database import get_db
+from ..config.supabase import get_supabase
 from ..schemas import message as MessageSchemas
-import os, uuid
+from ..models.chat import Chat
+from ..models.message import Message
 from ..enums.chat_role import ChatRole
 
 router = APIRouter()
 
+
 @router.post("/create", response_model=MessageSchemas.Message)
-async def create(image: UploadFile | None = File(default=None), 
-                 new_message: MessageSchemas.MessageCreate = Depends(MessageSchemas.chat_form), 
-                 current_user = Depends(get_current_user)):
-        supabase = get_db()
+async def create(
+    image: UploadFile | None = File(default=None),
+    new_message: MessageSchemas.MessageCreate = Depends(MessageSchemas.chat_form),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not new_message.content and not image:
+        raise HTTPException(status_code=400, detail="A message must have either content or an image.")
+
+    user_id = current_user["user"].id
+    chat = (
+        db.query(Chat)
+        .filter(Chat.id == new_message.chat_id)
+        .filter(Chat.user_id == user_id)
+        .first()
+    )
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found.")
+
+    image_path = None
+    if image:
+        contents = await image.read()
+
+        image_ext = os.path.splitext(image.filename)[1]
+        image_name = f"{uuid.uuid4()}{image_ext}"
+        image_path = f"{user_id}/{image_name}"
+
+        supabase = get_supabase()
         supabase.postgrest.auth(current_user["access_token"])
+        supabase.storage.from_("leafchat").upload(image_path, contents)
 
-        if not new_message.content and not image:
-            raise HTTPException(status_code=400, detail="A message must have either content or an image.")
+    message = Message(
+        chat_id=new_message.chat_id,
+        role=ChatRole.USER,
+        content=new_message.content,
+        image_path=image_path,
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
 
-        image_path = None
 
-        if image:
-            contents = await image.read()
+@router.get("/list/{chat_id}", response_model=list[MessageSchemas.Message])
+async def list(
+    chat_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["user"].id
+    chat = (
+        db.query(Chat)
+        .filter(Chat.id == chat_id)
+        .filter(Chat.user_id == user_id)
+        .first()
+    )
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found.")
 
-            image_ext = os.path.splitext(image.filename)[1]
-            image_name = f"{uuid.uuid4()}{image_ext}"
-            image_path = f"{current_user['user'].id}/{image_name}"
-            
-            response = supabase.storage.from_('leafchat').upload(image_path, contents)
-
-        message_data = {
-            "chat_id": new_message.chat_id,
-            "role": ChatRole.USER.value,
-            "content": new_message.content,
-            "image_path": image_path
-        }
-
-        response = (
-            supabase.table("messages")
-            .insert(message_data)
-            .execute()
-        )
-
-        if not response.data:
-            raise HTTPException(status_code=500, detail="Failed to create message.")
-        
-        return response.data[0]      
-
-@router.get("/list/{chat_id}", response_class=list[MessageSchemas.Message])
-async def list(chat_id: str, current_user=Depends(get_current_user)):
-    supabase = get_db()
-    supabase.postgrest.auth(current_user["access_token"])
-
-    response = (
-        supabase.table("messages")
-        .select("*")
-        .eq("chat_id", chat_id)
-        .order("created_at", desc=True)
-        .execute()
+    messages = (
+        db.query(Message)
+        .filter(Message.chat_id == chat_id)
+        .order_by(Message.created_at.desc())
+        .all()
     )
 
-    if not response.data:
+    if not messages:
         raise HTTPException(status_code=404, detail="No messages found for this chat.")
-    
-    return response.data
+
+    return messages
+
 
 @router.delete("/delete/{chat_id}/{message_id}", response_model=dict)
-async def delete(chat_id: str, message_id: int, current_user = Depends(get_current_user)):
-        supabase = get_db()
-        supabase.postgrest.auth(current_user["access_token"])
+async def delete(
+    chat_id: UUID,
+    message_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["user"].id
+    chat = (
+        db.query(Chat)
+        .filter(Chat.id == chat_id)
+        .filter(Chat.user_id == user_id)
+        .first()
+    )
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found.")
 
-        response = (
-            supabase.table("messages")
-            .delete()
-            .eq("chat_id", chat_id)
-            .eq("id", message_id)
-            .execute()
-        )
-        return response.data[0]
+    message = (
+        db.query(Message)
+        .filter(Message.chat_id == chat_id)
+        .filter(Message.id == message_id)
+        .first()
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found.")
+
+    db.delete(message)
+    db.commit()
+    return {"message": "Message deleted"}

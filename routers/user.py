@@ -1,12 +1,17 @@
-from fastapi import APIRouter, HTTPException, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from models.profiles import Profile
 from ..schemas import user as UserSchemas
-from ..config.supabase import get_db
+from ..config.supabase import get_supabase
+from ..config.database import get_db
 
 router = APIRouter()
 
 @router.post("/sign_up", response_model=UserSchemas.UserSession)
-async def sign_up(new_user: UserSchemas.UserCreate):
-        supabase = get_db()
+async def sign_up(new_user: UserSchemas.UserCreate,
+                  db: Session = Depends(get_db),
+                  supabase = Depends(get_supabase)):
 
         response = supabase.auth.sign_up(
                 {
@@ -17,8 +22,22 @@ async def sign_up(new_user: UserSchemas.UserCreate):
 
         if not response.user:
                 raise HTTPException(status_code=400, detail="Signup failed")
+        
+        try:
+                profile = Profile(user_id=response.user.id)
+                db.add(profile)
+                db.commit()
+        except Exception:
+                db.rollback()
+                raise
 
         session = response.session
+
+        if not response.session:
+                raise HTTPException(
+                        status_code=400,
+                        detail="Signup succeeded but no session returned (email confirmation may be required)"
+                )
         
         return {
                 "access_token": session.access_token, 
@@ -28,8 +47,8 @@ async def sign_up(new_user: UserSchemas.UserCreate):
         }
 
 @router.post("/login", response_model=UserSchemas.UserSession)
-async def login(user: UserSchemas.UserLogin):
-        supabase = get_db()
+async def login(user: UserSchemas.UserLogin,
+                supabase = Depends(get_supabase)):
 
         response = supabase.auth.sign_in_with_password(
                 {
@@ -41,6 +60,11 @@ async def login(user: UserSchemas.UserLogin):
                 raise HTTPException(status_code=400, detail="Login failed")
 
         session = response.session
+        if not response.session:
+                raise HTTPException(
+                        status_code=400,
+                        detail="Login succeeded but no session returned (email confirmation may be required)"
+                )
         return {
                 "access_token": session.access_token, 
                 "refresh_token": session.refresh_token, 

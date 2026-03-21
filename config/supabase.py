@@ -14,7 +14,7 @@ if settings.SUPABASE_SECRET_KEY:
         settings.SUPABASE_SECRET_KEY
     )
 
-def get_db():
+def get_supabase():
     return supabase
 
 def get_supabase_admin():
