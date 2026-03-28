@@ -2,7 +2,9 @@
 name = "leafchat-api"
 version = "0.1.0"
 dependencies = [
+  "alembic>=1.18.4",
   "fastapi[standard]",
+  "psycopg2-binary>=2.9.11",
   "python-dotenv>=1.2.1",
   "sqlalchemy>=2.0.46",
   "supabase>=2.28.0",

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from models.profiles import Profile
+from ..models.profiles import Profile
 from ..schemas import user as UserSchemas
 from ..config.supabase import get_supabase
 from ..config.database import get_db
