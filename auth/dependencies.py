@@ -9,7 +9,7 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
     token = credentials.credentials
-    supabase_db = supabase.get_db()
+    supabase_db = supabase.get_supabase()
     user_response = supabase_db.auth.get_user(jwt=token)
 
     if user_response.user is None:
