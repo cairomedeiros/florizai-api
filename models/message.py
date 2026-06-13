@@ -10,7 +10,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base
-from enums.chat_role import ChatRole
+from ..enums.chat_role import ChatRole
 
 class Message(Base):
     __tablename__ = "messages"
