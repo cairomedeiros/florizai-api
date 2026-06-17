@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from ..auth.dependencies import get_current_user
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from uuid import UUID
 from ..config.database import get_db
 from ..config.redis_client import get_redis_client
@@ -61,6 +61,7 @@ async def get(plant_id: UUID,
 
     plant = (
           db.query(Plant)
+          .options(selectinload(Plant.pictures))
           .filter(Plant.id == plant_id)
           .filter(Plant.user_id == user_id)
           .first()
@@ -87,6 +88,7 @@ async def list(current_user=Depends(get_current_user),
     
     plants = (
           db.query(Plant)
+          .options(selectinload(Plant.pictures))
           .filter(Plant.user_id == user_id)
           .order_by(Plant.created_at.desc())
           .all()

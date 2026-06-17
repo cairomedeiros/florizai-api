@@ -6,6 +6,7 @@ from ..config.database import get_db
 from ..models.plant import Plant
 from ..models.watering_event import WateringEvent
 from ..schemas import watering_events as WateringSchemas
+from ..services.scheduler_service import scheduler_service
 
 router = APIRouter()
 
@@ -88,3 +89,67 @@ async def delete(
     db.commit()
 
     return {"message": "Watering events deleted", "count": len(events)}
+
+
+# ===== REMINDERS (SCHEDULER) =====
+
+@router.post("/reminders/{plant_id}")
+async def create_watering_reminder(
+    plant_id: str,
+    reminder: WateringSchemas.WateringReminderCreate,
+    current_user=Depends(get_current_user),
+):
+    """
+    Cria lembrete automático de rega
+    
+    Body esperado:
+    {
+        "frequency": "daily"  # ou "weekly", "biweekly"
+    }
+    """
+    user_id = str(current_user["user"].id)
+    
+    scheduler_service.add_watering_reminder(
+        plant_id=plant_id,
+        user_id=user_id,
+        frequency=reminder.frequency
+    )
+    
+    return {
+        "message": "Lembrete de rega criado",
+        "plant_id": plant_id,
+        "frequency": reminder.frequency
+    }
+
+
+@router.delete("/reminders/{plant_id}")
+async def delete_watering_reminder(
+    plant_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Remove lembrete de rega"""
+    user_id = str(current_user["user"].id)
+    
+    scheduler_service.remove_watering_reminder(plant_id, user_id)
+    
+    return {"message": "Lembrete removido"}
+
+
+@router.get("/reminders")
+async def list_watering_reminders(
+    current_user=Depends(get_current_user),
+):
+    """Lista todos os lembretes do usuário"""
+    jobs = scheduler_service.scheduler.get_jobs()
+    
+    user_id = str(current_user["user"].id)
+    user_jobs = [
+        {
+            "id": job.id,
+            "next_run": job.next_run_time.isoformat() if job.next_run_time else None
+        }
+        for job in jobs
+        if user_id in job.id
+    ]
+    
+    return user_jobs

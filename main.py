@@ -1,13 +1,21 @@
+import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from .config.database import engine
+
+logging.basicConfig(level=logging.INFO)
 from .models.base import Base
 from .routers import user, plant, chat, message, plant_pictures, watering_events
+from .services.scheduler_service import scheduler_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    scheduler_service.start()
+    print("Scheduler iniciado")
     yield
+    scheduler_service.stop()
+    print("Scheduler parado")
 
 app = FastAPI(lifespan=lifespan)
 

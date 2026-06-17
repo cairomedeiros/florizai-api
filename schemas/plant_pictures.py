@@ -1,7 +1,11 @@
+from uuid import UUID
+
 from pydantic import BaseModel
+from datetime import datetime
 
 class PlantPicture(BaseModel):
-    id: str
-    plant_id: str
+    id: UUID
+    plant_id: UUID
     image_path: str | None
-    created_at: str
+    thumbnail_path: str | None
+    created_at: datetime

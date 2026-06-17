@@ -3,7 +3,9 @@ name = "leafchat-api"
 version = "0.1.0"
 dependencies = [
   "alembic>=1.18.4",
+  "apscheduler>=3.11.2",
   "fastapi[standard]",
+  "pillow>=12.2.0",
   "psycopg2-binary>=2.9.11",
   "python-dotenv>=1.2.1",
   "redis>=8.0.0",

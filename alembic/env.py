@@ -1,16 +1,33 @@
 import sys
 import os
+from pathlib import Path
 
-sys.path.append(os.getcwd())
+# Adicionar o diretório raiz do projeto ao sys.path
+project_root = str(Path(__file__).parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from logging.config import fileConfig
 from config.settings import settings
-from models import *
-from models.base import Base
+
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+# Importar os modelos para preencher target_metadata
+try:
+    from models.base import Base
+    # Importar todos os modelos para que sejam registrados
+    from models.profiles import Profile
+    from models.plant import Plant
+    from models.chat import Chat
+    from models.message import Message
+    from models.plant_pictures import PlantPicture
+    from models.watering_event import WateringEvent
+except ImportError as e:
+    print(f"Aviso ao importar modelos: {e}")
+    from models.base import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -24,8 +41,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

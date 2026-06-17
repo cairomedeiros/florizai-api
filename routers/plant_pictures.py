@@ -1,7 +1,7 @@
 import os
 import uuid
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from ..auth.dependencies import get_current_user
 from ..config.database import get_db
@@ -9,12 +9,14 @@ from ..config.supabase import get_supabase
 from ..models.plant import Plant
 from ..models.plant_pictures import PlantPicture
 from ..schemas import plant_pictures as PlantPictureSchemas
+from ..services.image_service import generate_and_upload_thumbnail
 
 router = APIRouter()
 
 
 @router.post("/create", response_model=PlantPictureSchemas.PlantPicture)
 async def create(
+    background_tasks: BackgroundTasks,
     image: UploadFile | None = File(default=None),
     plant_id: UUID | None = None,
     current_user=Depends(get_current_user),
@@ -45,10 +47,22 @@ async def create(
     plant_picture = PlantPicture(
         plant_id=plant_id,
         image_path=image_path,
+        thumbnail_path=None,
     )
     db.add(plant_picture)
     db.commit()
     db.refresh(plant_picture)
+
+    # Agendar geração de thumbnail em background
+    background_tasks.add_task(
+        generate_and_upload_thumbnail,
+        contents,
+        image_path,
+        current_user["access_token"],
+        str(user_id),
+        str(plant_picture.id)
+    )
+
     return plant_picture
 
 
