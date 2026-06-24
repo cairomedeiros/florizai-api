@@ -5,7 +5,7 @@ from .config.database import engine
 
 logging.basicConfig(level=logging.INFO)
 from .models.base import Base
-from .routers import user, plant, chat, message, plant_pictures, watering_events
+from .routers import user, plant, chat, message, plant_pictures, watering_events, ai
 from .services.scheduler_service import scheduler_service
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(message.router, prefix="/message", tags=["message"])
 app.include_router(plant_pictures.router, prefix="/plant_pictures", tags=["plant_pictures"])
 app.include_router(watering_events.router, prefix="/watering_events", tags=["watering_events"])
+app.include_router(ai.router, prefix="/ai", tags=["ai"])
 
 @app.get("/")
 async def root():

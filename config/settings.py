@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str
     SUPABASE_SECRET_KEY: str
     DATABASE_URL: str
+    GROQ_API_KEY: str
 
     class Config:
         env_file = ".env"
