@@ -10,21 +10,43 @@ EVAL = [
     ("which plants like bright light?", "bright"),
     ]
 
+
+def first_hit_rank(chunks: list[str], keyword: str) -> int | None:
+    """1-based position of the first chunk containing keyword, or None."""
+    kw = keyword.lower()
+    for i, chunk in enumerate(chunks, start=1):
+        if kw in chunk.lower():
+            return i
+    return None
+
+
 def eval_calculator():
-    hit = 0
     total = len(EVAL)
+    hit3 = hit8 = 0
+    reciprocal_sum = 0.0
     for question, keyword in EVAL:
-        res = col.query(query_texts=[question], n_results=8)
-        print(f"\nQuestion: {question}\nKeyword: {keyword}\n")
-        chunks = res["documents"][0]
+        chunks = col.query(query_texts=[question], n_results=8)["documents"][0]
+        rank = first_hit_rank(chunks, keyword)
+        # ponytail: keyword-in-chunk is a cheap proxy for relevance — fine for a
+        # ~22-chunk corpus. Move to graded/embedding judgments if the corpus grows.
+        if rank is not None:
+            hit8 += 1
+            if rank <= 3:
+                hit3 += 1
+            reciprocal_sum += 1 / rank
+        print(f"{'HIT' if rank else 'MISS':4} rank={rank}  {question}")
 
-        if any(keyword.lower() in chunk.lower() for chunk in chunks):
-            print("HIT")
-            hit += 1
-        else:
-            print("MISS")
+    print(f"\nHit@3: {hit3}/{total}   Hit@8: {hit8}/{total}   "
+          f"MRR: {reciprocal_sum / total:.2f}")
 
-    print(f"\nEvaluation Results: {hit}/{total} hits")
+
+def _selfcheck():
+    chunks = ["nothing here", "talks about SHADE plants", "shade again"]
+    assert first_hit_rank(chunks, "shade") == 2, "should find first hit at rank 2"
+    assert first_hit_rank(chunks, "missing") is None, "absent keyword -> None"
+    print("selfcheck ok")
+
 
 if __name__ == "__main__":
+    _selfcheck()
     eval_calculator()

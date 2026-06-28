@@ -66,3 +66,9 @@ htmlcov/
 
 chroma/
 docs/*.pdf
+
+# -------------------------
+# Dev scratch notes (kept local, not committed)
+# -------------------------
+CHANGES_*.md
+FRONTEND.md

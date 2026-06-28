@@ -3,6 +3,7 @@ import uuid
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
+from fastapi.concurrency import run_in_threadpool
 from ..auth.dependencies import get_current_user
 from ..config.database import get_db
 from ..config.supabase import get_supabase
@@ -10,6 +11,7 @@ from ..schemas import message as MessageSchemas
 from ..models.chat import Chat
 from ..models.message import Message
 from ..enums.chat_role import ChatRole
+from .ai import rag_answer, vision_answer
 
 router = APIRouter()
 
@@ -55,7 +57,24 @@ async def create(
     db.add(message)
     db.commit()
     db.refresh(message)
-    return message
+
+    # ponytail: single-turn. Pass chat history when multi-turn matters.
+    # run_in_threadpool keeps the blocking Groq call off the event loop.
+    if image:
+        answer = await run_in_threadpool(vision_answer, contents, image.content_type, new_message.content)
+    else:
+        result = await run_in_threadpool(rag_answer, new_message.content)
+        answer = result["answer"]
+
+    reply = Message(
+        chat_id=new_message.chat_id,
+        role=ChatRole.ASSISTANT,
+        content=answer,
+    )
+    db.add(reply)
+    db.commit()
+    db.refresh(reply)
+    return reply
 
 
 @router.get("/list/{chat_id}", response_model=list[MessageSchemas.Message])

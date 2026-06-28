@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from ..auth.dependencies import get_current_user
+from .ai import suggest_interval_text
 from sqlalchemy.orm import Session, selectinload
 from uuid import UUID
 from ..config.database import get_db
@@ -18,6 +20,11 @@ async def create(new_plant: PlantsSchemas.PlantCreate,
         plant = Plant(
             **new_plant.model_dump(),
             user_id=current_user["user"].id
+        )
+        # LLM picks the watering cadence from name+description. Vision refines it
+        # later when a photo is uploaded (plant_pictures.create).
+        plant.watering_interval_days = await run_in_threadpool(
+            suggest_interval_text, plant.name, plant.description
         )
         db.add(plant)
         db.commit()

@@ -6,12 +6,29 @@ from sqlalchemy.orm import Session
 from ..auth.dependencies import get_current_user
 from ..config.database import get_db
 from ..config.supabase import get_supabase
+from ..config.database import SessionLocal
 from ..models.plant import Plant
 from ..models.plant_pictures import PlantPicture
 from ..schemas import plant_pictures as PlantPictureSchemas
 from ..services.image_service import generate_and_upload_thumbnail
+from ..services.cache_service import invalidate_cache
+from .ai import suggest_interval_vision
 
 router = APIRouter()
+
+
+def _refine_interval_from_image(image_bytes: bytes, mime: str, plant_id, name: str, description):
+    """Background: re-estimate watering cadence from the photo + name/description."""
+    interval = suggest_interval_vision(image_bytes, mime, name, description)
+    db = SessionLocal()
+    try:
+        plant = db.query(Plant).filter(Plant.id == plant_id).first()
+        if plant:
+            plant.watering_interval_days = interval
+            db.commit()
+            invalidate_cache(user_id=plant.user_id)
+    finally:
+        db.close()
 
 
 @router.post("/create", response_model=PlantPictureSchemas.PlantPicture)
@@ -61,6 +78,16 @@ async def create(
         current_user["access_token"],
         str(user_id),
         str(plant_picture.id)
+    )
+
+    # Refinar o intervalo de rega com base na foto (visão), em background
+    background_tasks.add_task(
+        _refine_interval_from_image,
+        contents,
+        image.content_type,
+        plant.id,
+        plant.name,
+        plant.description,
     )
 
     return plant_picture

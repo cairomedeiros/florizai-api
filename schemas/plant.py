@@ -22,5 +22,6 @@ class Plant(PlantCreate):
     id: UUID
     user_id: UUID
     created_at: datetime.datetime
+    watering_interval_days: int | None = None
     file_path: str | None = None
     pictures: list[PlantPictureNested] = []

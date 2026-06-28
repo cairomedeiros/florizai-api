@@ -7,6 +7,7 @@ from sqlalchemy import (
     text
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from .base import Base
 
 class Chat(Base):
@@ -16,3 +17,4 @@ class Chat(Base):
     plant_id = Column(UUID(as_uuid=True), ForeignKey("plants.id"), nullable=True)
     summary = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=text('now()'))
+    messages = relationship("Message", cascade="all, delete-orphan")
