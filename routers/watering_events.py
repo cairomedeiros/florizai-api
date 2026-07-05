@@ -64,6 +64,28 @@ async def list(
     return events
 
 
+@router.delete("/event/{event_id}", response_model=dict)
+async def delete_event(
+    event_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user["user"].id
+    event = (
+        db.query(WateringEvent)
+        .join(Plant, Plant.id == WateringEvent.plant_id)
+        .filter(WateringEvent.id == event_id)
+        .filter(Plant.user_id == user_id)
+        .first()
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Watering event not found.")
+
+    db.delete(event)
+    db.commit()
+    return {"message": "Watering event deleted", "id": str(event_id)}
+
+
 @router.delete("/delete/{plant_id}", response_model=dict)
 async def delete(
     plant_id: UUID,
