@@ -29,7 +29,7 @@ class Ask(BaseModel):
     question: str
 
 def rag_answer(question: str) -> dict:
-    hits = col.query(query_texts=[question], n_results=8)   # ponytail: small corpus (22 chunks), top-8 is cheap and catches "clean" chunks that fall outside top-5
+    hits = col.query(query_texts=[question], n_results=8)   # ponytail: small corpus (63 chunks), top-8 is cheap and catches "clean" chunks that fall outside top-5
     chunks, metas, dists = hits["documents"][0], hits["metadatas"][0], hits["distances"][0]
 
     prompt = (
@@ -40,7 +40,7 @@ def rag_answer(question: str) -> dict:
         model=MODEL, messages=[{"role": "user", "content": prompt}]
     ).choices[0].message.content
 
-    # ponytail: confidence = distance of the best chunk. Heuristic; replace with Thursday's eval.
+    # ponytail: confidence = distance of the best chunk. Heuristic, not a calibrated probability.
     confidence = round(max(0.0, 1 - dists[0]), 2)
     return {"answer": answer, "sources": list(dict.fromkeys(m["source"] for m in metas)),
             "confidence": confidence}

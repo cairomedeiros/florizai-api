@@ -28,7 +28,7 @@ def eval_calculator():
         chunks = col.query(query_texts=[question], n_results=8)["documents"][0]
         rank = first_hit_rank(chunks, keyword)
         # ponytail: keyword-in-chunk is a cheap proxy for relevance — fine for a
-        # ~22-chunk corpus. Move to graded/embedding judgments if the corpus grows.
+        # ~60-chunk corpus. Move to graded/embedding judgments if the corpus grows.
         if rank is not None:
             hit8 += 1
             if rank <= 3:
