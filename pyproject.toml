@@ -1,5 +1,5 @@
 [project]
-name = "leafchat-api"
+name = "florizai-api"
 version = "0.1.0"
 dependencies = [
   "alembic>=1.18.4",
